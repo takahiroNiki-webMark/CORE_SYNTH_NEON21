@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>CORE_SYNTH_NEON21</title>
+
+
+<!-- Manifest & Theme Settings -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#05020a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icon-512.png">
+
+
+  <style>
+    :root {
+      --cyan: #00e5ff;
+      --pink: #bd00fe;
+      --bg: #05020a;
+      --panel-bg: rgba(15, 5, 25, 0.85);
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      margin: 0;
+      padding: 16px;
+      background: var(--bg);
+      color: var(--cyan);
+      font-family: 'Courier New', Courier, monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    h1 {
+      margin: 0 0 16px 0;
+      font-size: 24px;
+      letter-spacing: 4px;
+      color: var(--cyan);
+      text-shadow: 0 0 8px var(--cyan), 0 0 20px var(--cyan);
+      text-align: center;
+    }
+
+    .synth-container {
+      background: var(--panel-bg);
+      border: 2px solid var(--cyan);
+      box-shadow: 0 0 15px var(--cyan), inset 0 0 15px rgba(0, 229, 255, 0.3);
+      border-radius: 12px;
+      padding: 20px;
+      width: 100%;
+      max-width: 820px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* 3つで折り返すグリッド構造 */
+    .panel-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    @media (max-width: 700px) {
+      .panel-grid {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      }
+    }
+
+    .section-box {
+      border: 1px solid var(--cyan);
+      box-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+      padding: 12px;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: bold;
+      color: var(--pink);
+      text-shadow: 0 0 5px var(--pink);
+      letter-spacing: 2px;
+      border-bottom: 1px solid var(--pink);
+      padding-bottom: 4px;
+    }
+
+    .control-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .control-item label {
+      font-size: 10px;
+      display: flex;
+      justify-content: space-between;
+      letter-spacing: 1px;
+    }
+
+    .val-disp {
+      color: var(--pink);
+    }
+
+    /* 横型スライダーデザイン */
+    input[type="range"] {
+      -webkit-appearance: none;
+      background: transparent;
+      width: 100%;
+    }
+
+    input[type="range"]:focus {
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 6px;
+      cursor: pointer;
+      background: var(--bg);
+      border: 1px solid var(--cyan);
+      box-shadow: 0 0 5px var(--cyan);
+      border-radius: 3px;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      height: 16px;
+      width: 16px;
+      border-radius: 50%;
+      background: var(--pink);
+      box-shadow: 0 0 8px var(--pink);
+      cursor: pointer;
+      -webkit-appearance: none;
+      margin-top: -6px;
+      border: 1px solid var(--cyan);
+    }
+
+    .btn-toggle {
+      background: transparent;
+      border: 1px solid var(--cyan);
+      color: var(--cyan);
+      padding: 8px;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 4px;
+      box-shadow: 0 0 5px var(--cyan);
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .btn-toggle.active {
+      background: var(--pink);
+      color: #000;
+      border-color: var(--pink);
+      box-shadow: 0 0 12px var(--pink);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-row .btn-toggle {
+      flex: 1;
+    }
+
+    .visualizer-box {
+      height: 80px;
+      border: 1px solid var(--pink);
+      box-shadow: 0 0 8px rgba(189, 0, 254, 0.4);
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* 演奏エリア：上部にピッチベンダー、下部に37鍵盤 */
+    .performance-area {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+    }
+
+    /* ピッチベンダーボックス（横長スタイル） */
+    .pitch-bend-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      border: 1px solid var(--cyan);
+      padding: 10px 16px;
+      border-radius: 8px;
+      box-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+      background: #000;
+    }
+
+    .pitch-bend-wrapper label {
+      font-size: 11px;
+      color: var(--pink);
+      letter-spacing: 2px;
+      font-weight: bold;
+      white-space: nowrap;
+    }
+
+    .keyboard-wrapper {
+      overflow-x: auto;
+      padding-bottom: 6px;
+    }
+
+    .keyboard {
+      display: flex;
+      position: relative;
+      height: 150px;
+      width: max-content;
+      margin: 0 auto;
+      padding: 10px;
+      border: 1px solid var(--cyan);
+      box-shadow: 0 0 10px var(--cyan);
+      border-radius: 8px;
+      background: #000;
+    }
+
+    .key {
+      position: relative;
+      cursor: pointer;
+      box-sizing: border-box;
+      transition: background 0.05s, transform 0.05s;
+    }
+
+    .key.white {
+      width: 28px;
+      height: 100%;
+      background: var(--bg);
+      border: 1px solid var(--cyan);
+      border-radius: 0 0 4px 4px;
+      z-index: 1;
+      margin-right: 2px;
+      box-shadow: inset 0 0 5px rgba(0, 229, 255, 0.3);
+    }
+
+    .key.white.active {
+      background: var(--cyan);
+      box-shadow: 0 0 15px var(--cyan);
+      transform: translateY(2px);
+    }
+
+    .key.black {
+      width: 18px;
+      height: 60%;
+      background: #000;
+      border: 1px solid var(--pink);
+      box-shadow: 0 0 6px var(--pink);
+      margin-left: -11px;
+      margin-right: -9px;
+      z-index: 2;
+      border-radius: 0 0 3px 3px;
+    }
+
+    .key.black.active {
+      background: var(--pink);
+      box-shadow: 0 0 20px var(--pink);
+      transform: translateY(2px);
+    }
+  </style>
+</head>
+<body>
+
+  <h1>CORE_SYNTH_NEON21</h1>
+
+  <div class="synth-container">
+    
+    <div class="visualizer-box">
+      <canvas id="scope"></canvas>
+    </div>
+
+    <!-- コントロールパネル -->
+    <div class="panel-grid">
+      
+      <!-- 1. VCO / SUB -->
+      <div class="section-box">
+        <div class="section-title">VCO / SUB-OSC</div>
+        <div class="control-item">
+          <label>WAVEFORM</label>
+          <button class="btn-toggle" id="wave-btn">SAWTOOTH</button>
+        </div>
+        <div class="control-item">
+          <label>SUB OSC (OCT -2) <span class="val-disp" id="sub-val">50%</span></label>
+          <input type="range" id="sub-level" min="0" max="1" step="0.01" value="0.5">
+        </div>
+      </div>
+
+      <!-- 2. VCF / LFO -->
+      <div class="section-box">
+        <div class="section-title">VCF & LFO MOD</div>
+        <div class="control-item">
+          <label>CUTOFF <span class="val-disp" id="cutoff-val">2000Hz</span></label>
+          <input type="range" id="cutoff" min="100" max="8000" value="2000">
+        </div>
+        <div class="control-item">
+          <label>LFO RATE <span class="val-disp" id="lfo-val">4.0Hz</span></label>
+          <input type="range" id="lfo-rate" min="0.1" max="15" step="0.1" value="4">
+        </div>
+      </div>
+
+      <!-- 3. CHORUS EFFECT -->
+      <div class="section-box">
+        <div class="section-title">STEREO CHORUS</div>
+        <div class="control-item">
+          <label>CHORUS RATE <span class="val-disp" id="chorus-rate-val">1.5Hz</span></label>
+          <input type="range" id="chorus-rate" min="0.2" max="5.0" step="0.1" value="1.5">
+        </div>
+        <div class="control-item">
+          <label>CHORUS DEPTH <span class="val-disp" id="chorus-depth-val">30%</span></label>
+          <input type="range" id="chorus-depth" min="0" max="1" step="0.05" value="0.3">
+        </div>
+      </div>
+
+      <!-- 4. DELAY EFFECT -->
+      <div class="section-box">
+        <div class="section-title">DELAY EFFECT</div>
+        <div class="control-item">
+          <label>DELAY TIME <span class="val-disp" id="delay-time-val">0.30s</span></label>
+          <input type="range" id="delay-time" min="0.05" max="0.8" step="0.01" value="0.3">
+        </div>
+        <div class="control-item">
+          <label>FEEDBACK <span class="val-disp" id="delay-fb-val">40%</span></label>
+          <input type="range" id="delay-fb" min="0" max="0.8" step="0.01" value="0.4">
+        </div>
+      </div>
+
+      <!-- 5. HOLD & SUSTAIN -->
+      <div class="section-box">
+        <div class="section-title">HOLD & SUSTAIN</div>
+        <div class="control-item">
+          <label>PLAY MODE</label>
+          <div class="btn-row">
+            <button class="btn-toggle" id="hold-btn">HOLD: OFF</button>
+            <button class="btn-toggle" id="latch-btn">LATCH: OFF</button>
+          </div>
+        </div>
+        <div class="control-item">
+          <label>ACTION</label>
+          <button class="btn-toggle" id="clear-btn" style="border-color: var(--pink); color: var(--pink);">CLEAR ALL</button>
+        </div>
+      </div>
+
+      <!-- 6. ARPEGGIATOR / BPM -->
+      <div class="section-box">
+        <div class="section-title">ARPEGGIATOR / BPM</div>
+        <div class="control-item">
+          <label>MODE</label>
+          <button class="btn-toggle" id="arp-btn">ARP: OFF</button>
+        </div>
+        <div class="control-item">
+          <label>TEMPO <span class="val-disp" id="bpm-val">120 BPM</span></label>
+          <input type="range" id="bpm" min="60" max="240" value="120">
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 演奏エリア: 上部に横型ピッチベンダー、下部に37鍵盤 -->
+    <div class="performance-area">
+      <div class="pitch-bend-wrapper">
+        <label>PITCH BEND</label>
+        <input type="range" id="pitch-bend" min="-12" max="12" value="0" step="0.1">
+      </div>
+
+      <div class="keyboard-wrapper">
+        <div class="keyboard" id="keyboard"></div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+// --- Note Frequency Generation (C3 to C6 : 37 Keys) ---
+const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const keysData = [];
+for (let i = 0; i < 37; i++) {
+  const midi = 48 + i;
+  const octave = 3 + Math.floor(i / 12);
+  const noteName = NOTES[i % 12];
+  const name = noteName + octave;
+  const isBlack = noteName.includes("#");
+  const freq = 440 * Math.pow(2, (midi - 69) / 12);
+  keysData.push({ name, freq, isBlack, midi });
+}
+
+// --- Audio Engine Variables ---
+let audioCtx, masterGain, mainFilter, lfo, lfoGain, delayNode, delayFeedback, analyser;
+let chorusDelay, chorusLfo, chorusLfoGain;
+let activeNotes = {};
+let currentWave = "sawtooth";
+let arpActive = false;
+let holdActive = false;
+let latchActive = false;
+let arpTimer = null;
+let heldKeys = [];
+let pitchBendSemi = 0;
+
+function initAudio() {
+  if (audioCtx) {
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    return;
+  }
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  mainFilter = audioCtx.createBiquadFilter();
+  mainFilter.type = "lowpass";
+  mainFilter.frequency.value = parseFloat(document.getElementById("cutoff").value);
+
+  // Filter LFO
+  lfo = audioCtx.createOscillator();
+  lfoGain = audioCtx.createGain();
+  lfo.frequency.value = parseFloat(document.getElementById("lfo-rate").value);
+  lfoGain.gain.value = 400;
+  lfo.connect(lfoGain);
+  lfoGain.connect(mainFilter.frequency);
+  lfo.start();
+
+  // Stereo Chorus Engine
+  chorusDelay = audioCtx.createDelay();
+  chorusDelay.delayTime.value = 0.025;
+  chorusLfo = audioCtx.createOscillator();
+  chorusLfoGain = audioCtx.createGain();
+  
+  chorusLfo.frequency.value = parseFloat(document.getElementById("chorus-rate").value);
+  chorusLfoGain.gain.value = parseFloat(document.getElementById("chorus-depth").value) * 0.005;
+
+  chorusLfo.connect(chorusLfoGain);
+  chorusLfoGain.connect(chorusDelay.delayTime);
+  chorusLfo.start();
+
+  // Delay Effect
+  delayNode = audioCtx.createDelay();
+  delayFeedback = audioCtx.createGain();
+  delayNode.delayTime.value = parseFloat(document.getElementById("delay-time").value);
+  delayFeedback.gain.value = parseFloat(document.getElementById("delay-fb").value);
+  
+  delayNode.connect(delayFeedback);
+  delayFeedback.connect(delayNode);
+
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.25;
+  
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 512;
+
+  // Audio Routing
+  mainFilter.connect(masterGain);
+  mainFilter.connect(chorusDelay);
+  chorusDelay.connect(masterGain);
+
+  masterGain.connect(analyser);
+  masterGain.connect(audioCtx.destination);
+  masterGain.connect(delayNode);
+  delayNode.connect(audioCtx.destination);
+}
+
+// --- Synth Voice Logic ---
+function playSynth(freq) {
+  initAudio();
+  if (!audioCtx) return null;
+  const now = audioCtx.currentTime;
+
+  const bentFreq = freq * Math.pow(2, pitchBendSemi / 12);
+
+  const osc = audioCtx.createOscillator();
+  osc.type = currentWave;
+  osc.frequency.setValueAtTime(bentFreq, now);
+
+  const subOsc = audioCtx.createOscillator();
+  subOsc.type = "square";
+  subOsc.frequency.setValueAtTime(bentFreq / 4, now);
+
+  const subGain = audioCtx.createGain();
+  const subVol = parseFloat(document.getElementById("sub-level").value);
+  subGain.gain.setValueAtTime(subVol, now);
+
+  const noteGain = audioCtx.createGain();
+  noteGain.gain.setValueAtTime(0, now);
+  noteGain.gain.linearRampToValueAtTime(0.5, now + 0.03);
+
+  osc.connect(noteGain);
+  subOsc.connect(subGain);
+  subGain.connect(noteGain);
+  noteGain.connect(mainFilter);
+
+  osc.start(now);
+  subOsc.start(now);
+
+  return { osc, subOsc, noteGain, baseFreq: freq };
+}
+
+function stopSynth(synthObj) {
+  if (!synthObj || !audioCtx) return;
+  const now = audioCtx.currentTime;
+  synthObj.noteGain.gain.cancelScheduledValues(now);
+  synthObj.noteGain.gain.setValueAtTime(synthObj.noteGain.gain.value, now);
+  synthObj.noteGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+
+  setTimeout(() => {
+    try {
+      synthObj.osc.stop();
+      synthObj.subOsc.stop();
+      synthObj.osc.disconnect();
+      synthObj.subOsc.disconnect();
+    } catch(e) {}
+  }, 300);
+}
+
+function stopAllNotes() {
+  Object.keys(activeNotes).forEach(noteName => {
+    stopSynth(activeNotes[noteName]);
+    const el = document.querySelector(`[data-note="${noteName}"]`);
+    if (el) el.classList.remove("active");
+  });
+  activeNotes = {};
+  heldKeys = [];
+  if (arpActive) stopArp();
+}
+
+// --- Key Touch / Click Actions ---
+function handleKeyClick(keyData) {
+  initAudio();
+
+  if (holdActive && activeNotes[keyData.name]) {
+    stopSynth(activeNotes[keyData.name]);
+    delete activeNotes[keyData.name];
+    heldKeys = heldKeys.filter(k => k.name !== keyData.name);
+    const el = document.querySelector(`[data-note="${keyData.name}"]`);
+    if (el) el.classList.remove("active");
+    return;
+  }
+
+  if (latchActive && heldKeys.length === 0 && !arpActive) {
+    stopAllNotes();
+  }
+
+  if (!heldKeys.some(k => k.name === keyData.name)) {
+    heldKeys.push(keyData);
+  }
+
+  const el = document.querySelector(`[data-note="${keyData.name}"]`);
+  if (el) el.classList.add("active");
+
+  if (!arpActive) {
+    if (!activeNotes[keyData.name]) {
+      activeNotes[keyData.name] = playSynth(keyData.freq);
+    }
+  } else {
+    restartArp();
+  }
+}
+
+function handleKeyRelease(keyData) {
+  if (!holdActive && !latchActive && !arpActive) {
+    heldKeys = heldKeys.filter(k => k.name !== keyData.name);
+    if (activeNotes[keyData.name]) {
+      stopSynth(activeNotes[keyData.name]);
+      delete activeNotes[keyData.name];
+      const el = document.querySelector(`[data-note="${keyData.name}"]`);
+      if (el) el.classList.remove("active");
+    }
+  } else if (latchActive) {
+    heldKeys = heldKeys.filter(k => k.name !== keyData.name);
+  }
+
+  if (arpActive && heldKeys.length === 0 && !holdActive && !latchActive) {
+    stopArp();
+  }
+}
+
+// --- Pitch Bender Control ---
+const benderEl = document.getElementById("pitch-bend");
+
+function updatePitchBend(value) {
+  pitchBendSemi = parseFloat(value);
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+
+  Object.values(activeNotes).forEach(synthObj => {
+    if (synthObj && synthObj.osc && synthObj.subOsc) {
+      const bentFreq = synthObj.baseFreq * Math.pow(2, pitchBendSemi / 12);
+      synthObj.osc.frequency.setTargetAtTime(bentFreq, now, 0.01);
+      synthObj.subOsc.frequency.setTargetAtTime(bentFreq / 4, now, 0.01);
+    }
+  });
+}
+
+function resetPitchBend() {
+  benderEl.value = 0;
+  updatePitchBend(0);
+}
+
+benderEl.addEventListener("input", (e) => updatePitchBend(e.target.value));
+benderEl.addEventListener("mouseup", resetPitchBend);
+benderEl.addEventListener("touchend", resetPitchBend);
+benderEl.addEventListener("mouseleave", resetPitchBend);
+
+// --- Arpeggiator Engine ---
+let arpIndex = 0;
+let currentArpSynth = null;
+
+function restartArp() {
+  stopArp();
+  if (heldKeys.length === 0) return;
+  const bpm = parseInt(document.getElementById("bpm").value);
+  const intervalMs = (60 / bpm / 2) * 1000;
+  arpIndex = 0;
+  arpStep();
+  arpTimer = setInterval(arpStep, intervalMs);
+}
+
+function arpStep() {
+  if (heldKeys.length === 0) return;
+  if (currentArpSynth) stopSynth(currentArpSynth);
+
+  const targetKey = heldKeys[arpIndex % heldKeys.length];
+  currentArpSynth = playSynth(targetKey.freq);
+
+  const el = document.querySelector(`[data-note="${targetKey.name}"]`);
+  if (el) {
+    el.classList.add("active");
+    setTimeout(() => {
+      if (!holdActive && !heldKeys.some(k => k.name === targetKey.name)) {
+        el.classList.remove("active");
+      }
+    }, 120);
+  }
+
+  arpIndex++;
+}
+
+function stopArp() {
+  if (arpTimer) clearInterval(arpTimer);
+  arpTimer = null;
+  if (currentArpSynth) stopSynth(currentArpSynth);
+  currentArpSynth = null;
+}
+
+// --- UI Controls Event Binding ---
+const waveforms = ["sawtooth", "square", "triangle", "sine"];
+document.getElementById("wave-btn").addEventListener("click", (e) => {
+  initAudio();
+  const nextIdx = (waveforms.indexOf(currentWave) + 1) % waveforms.length;
+  currentWave = waveforms[nextIdx];
+  e.target.textContent = currentWave.toUpperCase();
+});
+
+// HOLD Mode Toggle
+const holdBtn = document.getElementById("hold-btn");
+holdBtn.addEventListener("click", () => {
+  initAudio();
+  holdActive = !holdActive;
+  if (holdActive) latchActive = false;
+  document.getElementById("latch-btn").classList.remove("active");
+  document.getElementById("latch-btn").textContent = "LATCH: OFF";
+
+  holdBtn.classList.toggle("active", holdActive);
+  holdBtn.textContent = holdActive ? "HOLD: TOGGLE" : "HOLD: OFF";
+  if (!holdActive) stopAllNotes();
+});
+
+// LATCH Mode Toggle
+const latchBtn = document.getElementById("latch-btn");
+latchBtn.addEventListener("click", () => {
+  initAudio();
+  latchActive = !latchActive;
+  if (latchActive) holdActive = false;
+  document.getElementById("hold-btn").classList.remove("active");
+  document.getElementById("hold-btn").textContent = "HOLD: OFF";
+
+  latchBtn.classList.toggle("active", latchActive);
+  latchBtn.textContent = latchActive ? "LATCH: ON" : "LATCH: OFF";
+  if (!latchActive) stopAllNotes();
+});
+
+// CLEAR ALL Button
+document.getElementById("clear-btn").addEventListener("click", () => {
+  stopAllNotes();
+});
+
+// Arpeggiator Toggle
+document.getElementById("arp-btn").addEventListener("click", (e) => {
+  initAudio();
+  arpActive = !arpActive;
+  e.target.classList.toggle("active", arpActive);
+  e.target.textContent = arpActive ? "ARP: ON" : "ARP: OFF";
+  if (!arpActive) stopArp();
+});
+
+// Slider Inputs
+document.getElementById("cutoff").addEventListener("input", (e) => {
+  document.getElementById("cutoff-val").textContent = e.target.value + "Hz";
+  if (mainFilter) mainFilter.frequency.setTargetAtTime(e.target.value, audioCtx.currentTime, 0.01);
+});
+document.getElementById("lfo-rate").addEventListener("input", (e) => {
+  document.getElementById("lfo-val").textContent = parseFloat(e.target.value).toFixed(1) + "Hz";
+  if (lfo) lfo.frequency.setTargetAtTime(e.target.value, audioCtx.currentTime, 0.01);
+});
+document.getElementById("chorus-rate").addEventListener("input", (e) => {
+  document.getElementById("chorus-rate-val").textContent = parseFloat(e.target.value).toFixed(1) + "Hz";
+  if (chorusLfo) chorusLfo.frequency.setTargetAtTime(e.target.value, audioCtx.currentTime, 0.01);
+});
+document.getElementById("chorus-depth").addEventListener("input", (e) => {
+  document.getElementById("chorus-depth-val").textContent = Math.round(e.target.value * 100) + "%";
+  if (chorusLfoGain) chorusLfoGain.gain.setTargetAtTime(e.target.value * 0.005, audioCtx.currentTime, 0.01);
+});
+document.getElementById("delay-time").addEventListener("input", (e) => {
+  document.getElementById("delay-time-val").textContent = parseFloat(e.target.value).toFixed(2) + "s";
+  if (delayNode) delayNode.delayTime.setTargetAtTime(e.target.value, audioCtx.currentTime, 0.01);
+});
+document.getElementById("delay-fb").addEventListener("input", (e) => {
+  document.getElementById("delay-fb-val").textContent = Math.round(e.target.value * 100) + "%";
+  if (delayFeedback) delayFeedback.gain.setTargetAtTime(e.target.value, audioCtx.currentTime, 0.01);
+});
+document.getElementById("sub-level").addEventListener("input", (e) => {
+  document.getElementById("sub-val").textContent = Math.round(e.target.value * 100) + "%";
+});
+document.getElementById("bpm").addEventListener("input", (e) => {
+  document.getElementById("bpm-val").textContent = e.target.value + " BPM";
+  if (arpActive && heldKeys.length > 0) restartArp();
+});
+
+// --- Keyboard Rendering ---
+const kbEl = document.getElementById("keyboard");
+keysData.forEach(key => {
+  const el = document.createElement("div");
+  el.className = `key ${key.isBlack ? 'black' : 'white'}`;
+  el.dataset.note = key.name;
+
+  const start = (e) => {
+    e.preventDefault();
+    handleKeyClick(key);
+  };
+
+  const end = (e) => {
+    e.preventDefault();
+    handleKeyRelease(key);
+  };
+
+  el.addEventListener("mousedown", start);
+  el.addEventListener("mouseup", end);
+  el.addEventListener("mouseleave", end);
+  el.addEventListener("touchstart", start, { passive: false });
+  el.addEventListener("touchend", end, { passive: false });
+
+  kbEl.appendChild(el);
+});
+
+// --- Oscilloscope Canvas Visualizer (#00e5ff Dedicated) ---
+const canvas = document.getElementById("scope");
+const ctx = canvas.getContext("2d");
+
+function drawScope() {
+  requestAnimationFrame(drawScope);
+  canvas.width = canvas.clientWidth;
+  canvas.height = canvas.clientHeight;
+
+  ctx.fillStyle = "#05020a";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  if (!analyser) return;
+
+  const bufferLength = analyser.frequencyBinCount;
+  const dataArray = new Uint8Array(bufferLength);
+  analyser.getByteTimeDomainData(dataArray);
+
+  // #00e5ff (Pure Neon Blue Waveform)
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "#00e5ff";
+  ctx.shadowBlur = 10;
+  ctx.shadowColor = "#00e5ff";
+  ctx.beginPath();
+
+  const sliceWidth = canvas.width / bufferLength;
+  let x = 0;
+
+  for (let i = 0; i < bufferLength; i++) {
+    const v = dataArray[i] / 128.0;
+    const y = (v * canvas.height) / 2;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+    x += sliceWidth;
+  }
+  ctx.stroke();
+}
+
+// 描画ループをバックグラウンドで開始
+drawScope();
+</script>
+
+
+<script>
+  // Service Worker Registration
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then((reg) => console.log('SW Registered successfully:', reg.scope))
+        .catch((err) => console.error('SW Registration failed:', err));
+    });
+  }
+</script>
+
+
+</body>
+</html>
