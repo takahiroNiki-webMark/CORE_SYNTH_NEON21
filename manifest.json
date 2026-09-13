@@ -1,6 +1,6 @@
 {
-  "name": "CORE_SYNTH_NEON21",
-  "short_name": "CORE_SYNTH_NEON21",
+  "name": "CORE-SYNTH-NEON21",
+  "short_name": "CORE-SYNTH-NEON21",
   "description": "Play. Bend. Shape. Evolve. A responsive 37‑key web synth built for expressive, real‑time performance.",
   "start_url": "./index.html",
   "display": "standalone",
